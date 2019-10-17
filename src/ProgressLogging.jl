@@ -7,7 +7,7 @@ using Logging: @logmsg, LogLevel
 const PROGRESSLEVEL = LogLevel(-1)
 
 """
-    progress(f::Function; name = "", msg = "")
+    progress(f::Function; name = "")
 
 Evaluates `f` with `id` as its argument and makes sure to destroy the progress
 bar afterwards. To update the progress bar in `f` you can call a logging statement
@@ -20,6 +20,8 @@ like `@info` or even just `@logmsg` with `_id=id` and `progress` as arguments.
 
 The logging message (e.g. `"foo"` in `@info "foo"`) will be used as the progress
 bar's name.
+
+Log level must be higher or equal to `$PROGRESSLEVEL`.
 
 ```julia
 ProgressLogging.progress() do id
