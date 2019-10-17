@@ -1,8 +1,8 @@
 module ProgressLogging
 
-export @progress
+export @progress, @withprogress, @logprogress
 
-using Logging: @logmsg, LogLevel
+using Logging: Logging, @logmsg, LogLevel
 
 const ProgressLevel = LogLevel(-1)
 
@@ -40,6 +40,60 @@ function progress(f; name = "")
     finally
         @logmsg ProgressLevel name progress = "done" _id = _id
     end
+end
+
+const _id_name = gensym(:progress_id)
+
+"""
+    @withprogress [name=""] ex
+
+Create a lexical environment in which [`@logprogress`](@ref) can be used to
+emit progress log events without manually specifying the log level and `_id`.
+
+```julia
+@withprogress begin
+    for i = 1:10
+        sleep(0.5)
+        @logprogress "iterating" progress=i/10
+    end
+end
+```
+"""
+macro withprogress(ex1, ex2 = nothing)
+    _withprogress(ex1, ex2)
+end
+
+_withprogress(ex, ::Nothing) = _withprogress(:(name = ""), ex)
+function _withprogress(kwarg, ex)
+    if !(kwarg.head == :(=) && kwarg.args[1] == :name)
+        throw(ArgumentError("First expression to @withprogress must be `name=...`. Got: $kwarg"))
+    end
+    name = kwarg.args[2]
+
+    @gensym progress_id name_var
+    m = @__MODULE__
+    quote
+        let $_id_name = $(QuoteNode(progress_id)),
+            $name_var = $name
+            $m.@logprogress $name_var progress = NaN
+            try
+                $ex
+            finally
+                $m.@logprogress $name_var progress = "done"
+            end
+        end
+    end |> esc
+end
+
+"""
+    @logprogress name progress=value ...
+
+See [`@withprogress`](@ref).
+"""
+macro logprogress(name, args...)
+    quote
+        $Logging.@logmsg($ProgressLevel, $name, _id = $_id_name, $(args...))
+    end |> esc
 end
 
 """
