@@ -4,7 +4,7 @@ export @progress
 
 using Logging: @logmsg, LogLevel
 
-const PROGRESSLEVEL = LogLevel(-1)
+const ProgressLevel = LogLevel(-1)
 
 """
     progress(f::Function; name = "")
@@ -21,7 +21,7 @@ like `@info` or even just `@logmsg` with `_id=id` and `progress` as arguments.
 The logging message (e.g. `"foo"` in `@info "foo"`) will be used as the progress
 bar's name.
 
-Log level must be higher or equal to `$PROGRESSLEVEL`.
+Log level must be higher or equal to `$ProgressLevel`.
 
 ```julia
 ProgressLogging.progress() do id
@@ -34,11 +34,11 @@ end
 """
 function progress(f; name = "")
     _id = gensym()
-    @logmsg PROGRESSLEVEL name progress = NaN _id = _id
+    @logmsg ProgressLevel name progress = NaN _id = _id
     try
         f(_id)
     finally
-        @logmsg PROGRESSLEVEL name progress = "done" _id = _id
+        @logmsg ProgressLevel name progress = "done" _id = _id
     end
 end
 
@@ -104,7 +104,7 @@ function _progress(name, thresh, ex, target, result, loop, iter_vars, ranges, bo
     )]
     _id = "progress_$(gensym())"
     quote
-        @logmsg($PROGRESSLEVEL, $(esc(name)), progress = 0.0, _id = Symbol($_id))
+        @logmsg($ProgressLevel, $(esc(name)), progress = 0.0, _id = Symbol($_id))
         $target =
             try
                 ranges = $(Expr(:vect, esc.(ranges)...))
@@ -122,7 +122,7 @@ function _progress(name, thresh, ex, target, result, loop, iter_vars, ranges, bo
                         frac = _frac($(Expr(:vect, count_vars...)))
                         if frac - lastfrac > $thresh
                             @logmsg(
-                                $PROGRESSLEVEL,
+                                $ProgressLevel,
                                 $(esc(name)),
                                 progress = frac,
                                 _id = Symbol($_id),
@@ -134,7 +134,7 @@ function _progress(name, thresh, ex, target, result, loop, iter_vars, ranges, bo
                 ))
 
             finally
-                @logmsg($PROGRESSLEVEL, $(esc(name)), progress = "done", _id = Symbol($_id))
+                @logmsg($ProgressLevel, $(esc(name)), progress = "done", _id = Symbol($_id))
             end
         $result
     end
