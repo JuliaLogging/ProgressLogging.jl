@@ -1,5 +1,8 @@
 module ProgressLogging
 
+# Use README as the docstring of the module:
+@doc read(joinpath(dirname(@__DIR__), "README.md"), String) ProgressLogging
+
 export @progress, @withprogress, @logprogress
 
 using Logging: Logging, @logmsg, LogLevel
