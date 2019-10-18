@@ -70,10 +70,10 @@ function _withprogress(kwarg, ex)
     end
     name = kwarg.args[2]
 
-    @gensym progress_id name_var
+    @gensym name_var
     m = @__MODULE__
     quote
-        let $_id_name = $(QuoteNode(progress_id)),
+        let $_id_name = gensym(:progress_id),
             $name_var = $name
             $m.@logprogress $name_var progress = NaN
             try
