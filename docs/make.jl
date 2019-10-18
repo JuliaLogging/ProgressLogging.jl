@@ -6,12 +6,11 @@ makedocs(;
     pages=[
         "Home" => "index.md",
     ],
-    repo="https://github.com/tkf/ProgressLogging.jl/blob/{commit}{path}#L{line}",
+    repo="https://github.com/JunoLab/ProgressLogging.jl/blob/{commit}{path}#L{line}",
     sitename="ProgressLogging.jl",
-    authors="Takafumi Arakaki <aka.tkf@gmail.com>",
     assets=String[],
 )
 
 deploydocs(;
-    repo="github.com/tkf/ProgressLogging.jl",
+    repo="github.com/JunoLab/ProgressLogging.jl",
 )
