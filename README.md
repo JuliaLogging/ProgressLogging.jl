@@ -22,4 +22,4 @@ the progress of the program.  You need to install a package supporting
 progress logs created by ProgressLogging.jl API.  For example:
 
 * [Juno](https://junolab.org/)
-* [ProgressMeterLogging.jl](https://github.com/tkf/ProgressMeterLogging.jl)
+* [ConsoleProgressMonitor.jl](https://github.com/tkf/ConsoleProgressMonitor.jl)
