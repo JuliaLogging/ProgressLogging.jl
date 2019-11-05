@@ -5,6 +5,7 @@ module ProgressLogging
 
 export @progress, @withprogress, @logprogress
 
+using Base.Meta: isexpr
 using Logging: Logging, @logmsg, LogLevel
 
 const ProgressLevel = LogLevel(-1)
@@ -45,19 +46,21 @@ function progress(f; name = "")
     end
 end
 
-const _id_name = gensym(:progress_id)
+const _id_var = gensym(:progress_id)
+const _name_var = gensym(:progress_name)
 
 """
     @withprogress [name=""] ex
 
 Create a lexical environment in which [`@logprogress`](@ref) can be used to
-emit progress log events without manually specifying the log level and `_id`.
+emit progress log events without manually specifying the log level, `_id`,
+and name (log message).
 
 ```julia
-@withprogress begin
+@withprogress name="iterating" begin
     for i = 1:10
         sleep(0.5)
-        @logprogress "iterating" progress=i/10
+        @logprogress i/10
     end
 end
 ```
@@ -73,29 +76,47 @@ function _withprogress(kwarg, ex)
     end
     name = kwarg.args[2]
 
-    @gensym name_var
     m = @__MODULE__
     quote
-        let $_id_name = gensym(:progress_id),
-            $name_var = $name
-            $m.@logprogress $name_var progress = NaN
+        let $_id_var = gensym(:progress_id),
+            $_name_var = $name
+            $m.@logprogress NaN
             try
                 $ex
             finally
-                $m.@logprogress $name_var progress = "done"
+                $m.@logprogress "done"
             end
         end
     end |> esc
 end
 
 """
-    @logprogress name progress=value ...
+    @logprogress [name] progress [key1=val1 [key2=val2 ...]]
 
-See [`@withprogress`](@ref).
+This macro must be used inside [`@withprogress`](@ref) macro.
+
+Log a progress event with a value `progress`.  The expression
+`progress` must be evaluated to be a real number between `0` and `1`
+(inclusive), a `NaN`, or a string `"done"`.
+
+Optional first argument `name` can be used to change the name of the
+progress bar.  Additional keyword arguments are passed to `@logmsg`.
 """
-macro logprogress(name, args...)
+macro logprogress(name, progress = nothing, args...)
+    if progress == nothing
+        # Handle: @logprogress progress
+        kwargs = (:(progress = $name), args...)
+        name = _name_var
+    elseif isexpr(progress, :(=)) && progress.args[1] isa Symbol
+        # Handle: @logprogress progress key1=val1 ...
+        kwargs = (:(progress = $name), progress, args...)
+        name = _name_var
+    else
+        # Otherwise, it's: @logprogress name progress key1=val1 ...
+        kwargs = (:(progress = $progress), args...)
+    end
     quote
-        $Logging.@logmsg($ProgressLevel, $name, _id = $_id_name, $(args...))
+        $Logging.@logmsg($ProgressLevel, $name, _id = $_id_var, $(kwargs...))
     end |> esc
 end
 
