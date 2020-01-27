@@ -180,40 +180,29 @@ function _progress(name, thresh, ex, target, result, loop, iter_vars, ranges, bo
         iter_vars,
         ranges,
     )]
-    _id = "progress_$(gensym())"
     quote
-        @logmsg($ProgressLevel, $(esc(name)), progress = 0.0, _id = Symbol($_id))
-        $target =
-            try
-                ranges = $(Expr(:vect, esc.(ranges)...))
-                nranges = length(ranges)
-                lens = length.(ranges)
-                n = prod(lens)
-                strides = cumprod([1; lens[1:end-1]])
-                _frac(i) = (sum((i - 1) * s for (i, s) in zip(i, strides)) + 1) / n
-                lastfrac = 0.0
+        $target = @withprogress name = $(esc(name)) begin
+            ranges = $(Expr(:vect, esc.(ranges)...))
+            nranges = length(ranges)
+            lens = length.(ranges)
+            n = prod(lens)
+            strides = cumprod([1; lens[1:end-1]])
+            _frac(i) = (sum((i - 1) * s for (i, s) in zip(i, strides)) + 1) / n
+            lastfrac = 0.0
 
-                $(loop(
-                    iter_exprs,
-                    quote
-                        val = $body
-                        frac = _frac($(Expr(:vect, count_vars...)))
-                        if frac - lastfrac > $thresh
-                            @logmsg(
-                                $ProgressLevel,
-                                $(esc(name)),
-                                progress = frac,
-                                _id = Symbol($_id),
-                            )
-                            lastfrac = frac
-                        end
-                        val
-                    end,
-                ))
-
-            finally
-                @logmsg($ProgressLevel, $(esc(name)), progress = "done", _id = Symbol($_id))
-            end
+            $(loop(
+                iter_exprs,
+                quote
+                    val = $body
+                    frac = _frac($(Expr(:vect, count_vars...)))
+                    if frac - lastfrac > $thresh
+                        @logprogress frac
+                        lastfrac = frac
+                    end
+                    val
+                end,
+            ))
+        end
         $result
     end
 end
