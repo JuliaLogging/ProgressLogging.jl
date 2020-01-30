@@ -49,10 +49,10 @@ of checking `message isa Progress`.  Progress monitors can retrieve
 progress-related information from the following properties.
 
 # Properties
-- `fraction::Float64`: it can take following values:
+- `fraction::Union{Float64,Nothing}`: it can take following values:
   - `0 <= fraction < 1`
-  - `fraction = NaN`: indeterminate progress
   - `fraction >= 1`: completed
+  - `fraction = nothing`: indeterminate progress
 - `id::UUID`: Identifier of the task whose progress is at `fraction`.
 - `parentid::UUID`: The ID of the parent progress.  It is set to
   [`ProgressLogging.ROOTID`](@ref) when there is no parent progress.
@@ -62,15 +62,30 @@ progress-related information from the following properties.
 - `name::String`: Name of the progress bar.
 - `done::Bool`: `true` if the task is done.
 """
-Base.@kwdef struct Progress
+struct Progress
     id::UUID
-    parentid::UUID = ROOTID  # not nested by default
-    fraction::Float64 = NaN
-    name::String = ""
-    done::Bool = false
+    parentid::UUID
+    fraction::Union{Float64,Nothing}
+    name::String
+    done::Bool
+
+    function Progress(id, parentid, fraction, name, done)
+        if fraction isa Real && isnan(fraction)
+            fraction = nothing
+        end
+        return new(id, parentid, fraction, name, done)
+    end
 end
 
-Progress(id::UUID, fraction::Real = NaN; kwargs...) =
+Progress(;
+    id::UUID,
+    parentid::UUID = ROOTID,  # not nested by default
+    fraction::Union{Float64,Nothing} = nothing,
+    name::String = "",
+    done::Bool = false,
+) = Progress(id, parentid, fraction, name, done)
+
+Progress(id::UUID, fraction::Union{Real,Nothing} = nothing; kwargs...) =
     Progress(; kwargs..., fraction = fraction, id = id)
 
 # Define `string`/`print` so that progress log records are (somewhat)
@@ -81,7 +96,7 @@ function Base.print(io::IO, progress::Progress)
         print(io, " (sub)")
     end
     print(io, ": ")
-    if isnan(progress.fraction)
+    if progress.fraction === nothing
         print(io, "??%")
     else
         print(io, floor(Int, progress.fraction * 100), '%')
@@ -93,10 +108,6 @@ const PROGRESS_LOGGING_UUID_NS = UUID("1e962757-ea70-431a-b9f6-aadf988dcb7f")
 
 asuuid(id::UUID) = id
 asuuid(id) = uuid5(PROGRESS_LOGGING_UUID_NS, string(id))
-
-asfraction(progress::Nothing) = NaN
-asfraction(progress::AbstractString) = progress == "done" ? NaN : nothing
-asfraction(progress::Real) = convert(Float64, progress)
 
 
 """
@@ -127,19 +138,24 @@ asprogress(_level, name, _module, _group, id, _file, _line; progress = undef, kw
 
 # `parentid` is used from `@logprogress`.
 function _asprogress(name, id, parentid = ROOTID; progress, _...)
-    fraction = asfraction(progress)
-    fraction === nothing && return nothing
+    if progress isa Union{Nothing,Real}
+        fraction = progress
+    elseif progress == "done"
+        fraction = nothing
+    else
+        return nothing
+    end
     return Progress(
         fraction = fraction,
         name = name,
         id = asuuid(id),
         parentid = parentid,
-        done = progress == "done"
+        done = progress == "done",
     )
 end
 
 # To pass `Progress` value without breaking progress monitors with the
-# previous `progress` key based specification, we create an abstract
+# previous `progress` key based specification, we create a custom
 # string type that has `Progress` attached to it.  This is used as the
 # third argument `message` of `Logging.handle_message`.
 struct ProgressString <: AbstractString
@@ -309,7 +325,7 @@ macro logprogress(name, progress = nothing, args...)
 
     @gensym id_tmp
     # Emitting progress log record as old/open API (i.e., using
-    # `progress` key) and also new API based on `Progress` type.
+    # `progress` key) and _also_ as new API based on `Progress` type.
     msgexpr = :($ProgressString($_asprogress(
         $name,
         $id_tmp,
