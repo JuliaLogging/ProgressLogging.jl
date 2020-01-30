@@ -298,7 +298,7 @@ macro logprogress(name, progress = nothing, args...)
         kwargs = (:(progress = $progress), args...)
     end
 
-    id_err = "`@logprogress` must be used inside @withprogress or `_id` keyword argument"
+    id_err = "`@logprogress` must be used inside `@withprogress` or with `_id` keyword argument"
     id_expr = :($Base.@isdefined($_id_var) ? $_id_var : $error($id_err))
     for x in kwargs
         if isexpr(x, :(=)) && x.args[1] === :_id
