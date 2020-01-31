@@ -75,7 +75,7 @@ end
     ids = unique([l.id for l in logs])
     @test length(ids) == 2
 
-    @test Tuple((l.id, l.message, l.kwargs[:progress]) for l in logs) === (
+    @test Tuple((l.id, string(l.message), l.kwargs[:progress]) for l in logs) === (
         (ids[1], "", NaN),
         (ids[1], "hello", 0.1),
         (ids[2], "", NaN),
@@ -93,7 +93,7 @@ end
         err
     end isa Exception  # unfortunately `LoadError`, not an `ArgumentError`
     msg = sprint(showerror, err)
-    @test occursin("First expression to @withprogress must be `name=...`.", msg)
+    @test occursin("Unsupported optional arguments:", msg)
     @test occursin("invalid_argument", msg)
 end
 
