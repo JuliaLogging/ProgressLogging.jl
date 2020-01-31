@@ -129,12 +129,23 @@ end
 ```
 """
 asprogress(_level, progress::Progress, _args...; _...) = progress
-asprogress(_level, name, _module, _group, id, _file, _line; progress = undef, kwargs...) =
+function asprogress(
+    _level,
+    name,
+    _module,
+    _group,
+    id,
+    _file,
+    _line;
+    progress = undef,  # `undef` is an arbitrary unsupported value
+    kwargs...,
+)
     if progress isa Union{Nothing,Real,AbstractString}
-        _asprogress(name, id; progress = progress, kwargs...)
+        return _asprogress(name, id; progress = progress, kwargs...)
     else
-        nothing
+        return nothing
     end
+end
 
 # `parentid` is used from `@logprogress`.
 function _asprogress(name, id, parentid = ROOTID; progress, _...)
