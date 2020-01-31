@@ -14,9 +14,9 @@ using Test: collect_test_logs
     @test logs[1].kwargs[:progress] === NaN
     @test logs[2].kwargs[:progress] === 0.1
     @test logs[3].kwargs[:progress] === "done"
-    @test logs[1].message === ""
-    @test logs[2].message === "hello"
-    @test logs[3].message === ""
+    @test logs[1].message == ""
+    @test logs[2].message == "hello"
+    @test logs[3].message == ""
     @test length(unique([l.id for l in logs])) == 1
 end
 
@@ -28,9 +28,9 @@ end
     @test logs[1].kwargs[:progress] === NaN
     @test logs[2].kwargs[:progress] === 0.1
     @test logs[3].kwargs[:progress] === "done"
-    @test logs[1].message === "hello"
-    @test logs[2].message === "hello"
-    @test logs[3].message === "hello"
+    @test logs[1].message == "hello"
+    @test logs[2].message == "hello"
+    @test logs[3].message == "hello"
     @test length(unique([l.id for l in logs])) == 1
 end
 
@@ -54,9 +54,9 @@ end
     @test logs[1].kwargs[:progress] === NaN
     @test logs[2].kwargs[:progress] === 0.1
     @test logs[3].kwargs[:progress] === "done"
-    @test logs[1].message === "name"
-    @test logs[2].message === "hello"
-    @test logs[3].message === "name"
+    @test logs[1].message == "name"
+    @test logs[2].message == "hello"
+    @test logs[3].message == "name"
     @test length(unique([l.id for l in logs])) == 1
 end
 
