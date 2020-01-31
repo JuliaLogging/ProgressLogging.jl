@@ -180,9 +180,11 @@ Base.convert(::Type{ProgressString}, str::ProgressString) = str
 Base.convert(::Type{T}, str::ProgressString) where {T<:AbstractString} =
     convert(T, str.progress.name)
 
+# Avoid using `show(::IO, ::AbstractString)` which expects
+# `Base.print_quoted` to work.
 function Base.show(io::IO, str::ProgressString)
     if get(io, :typeinfo, Any) === ProgressString
-        show(io, string(str.progress))
+        show(io, string(str))
         return
     end
     print(io, @__MODULE__, ".")
