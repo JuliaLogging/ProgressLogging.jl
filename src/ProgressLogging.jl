@@ -164,8 +164,7 @@ end
 
 asprogress(_level, str::ProgressString, _args...; _...) = str.progress
 
-Base.string(str::ProgressString) = str.progress.name
-Base.print(io::IO, str::ProgressString) = print(io, string(str))
+Base.print(io::IO, str::ProgressString) = print(io, str.progress.name)
 Base.convert(::Type{ProgressString}, str::ProgressString) = str
 Base.convert(::Type{T}, str::ProgressString) where {T<:AbstractString} =
     convert(T, str.progress.name)
