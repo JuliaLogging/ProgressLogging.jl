@@ -170,17 +170,6 @@ Base.convert(::Type{ProgressString}, str::ProgressString) = str
 Base.convert(::Type{T}, str::ProgressString) where {T<:AbstractString} =
     convert(T, str.progress.name)
 
-function Base.show(io::IO, str::ProgressString)
-    if get(io, :typeinfo, Any) === ProgressString
-        show(io, string(str.progress))
-        return
-    end
-    print(io, @__MODULE__, ".")
-    print(io, "ProgressString(")
-    show(io, str.progress)
-    print(io, ")")
-end
-
 """
     progress(f::Function; name = "")
 
