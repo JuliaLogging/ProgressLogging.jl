@@ -187,6 +187,11 @@ Base.convert(::Type{ProgressString}, str::ProgressString) = str
 Base.convert(::Type{T}, str::ProgressString) where {T<:AbstractString} =
     convert(T, str.progress.name)
 
+# Define `cmp` to make `==` etc. work
+Base.cmp(a::AbstractString, b::ProgressString) = cmp(a, string(b))
+Base.cmp(a::ProgressString, b::AbstractString) = cmp(string(a), b)
+Base.cmp(a::ProgressString, b::ProgressString) = cmp(string(a), string(b))
+
 # Avoid using `show(::IO, ::AbstractString)` which expects
 # `Base.print_quoted` to work.
 function Base.show(io::IO, str::ProgressString)
