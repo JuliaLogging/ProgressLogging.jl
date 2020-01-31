@@ -175,7 +175,13 @@ end
 
 asprogress(_level, str::ProgressString, _args...; _...) = str.progress
 
+# Since `Base.string(::AbstractString)` is defined to be an `identity`
+# function, we overload it to make sure that `string(message)`
+# typically used in the loggers converts `ProgressString` to a vanilla
+# `String` as soon as possible.  It may not be needed if we define
+# `ProgressString` perfectly.  But let's play on the safe side.
 Base.string(str::ProgressString) = str.progress.name
+
 Base.print(io::IO, str::ProgressString) = print(io, string(str))
 Base.convert(::Type{ProgressString}, str::ProgressString) = str
 Base.convert(::Type{T}, str::ProgressString) where {T<:AbstractString} =
