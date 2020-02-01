@@ -131,7 +131,7 @@ end
 const PROGRESS_LOGGING_UUID_NS = UUID("1e962757-ea70-431a-b9f6-aadf988dcb7f")
 
 asuuid(id::UUID) = id
-asuuid(id) = uuid5(PROGRESS_LOGGING_UUID_NS, string(id))
+asuuid(id) = uuid5(PROGRESS_LOGGING_UUID_NS, repr(id))
 
 
 """
