@@ -29,7 +29,7 @@ Progress log record can be created by using the following pattern
 id = uuid4()
 try
     @info Progress(id)  # create a progress bar
-    # some time consuming task
+    # some time consuming job
     # ...
     @info Progress(id, 0.1)  # update progress to 10%
     # ...
@@ -53,14 +53,14 @@ progress-related information from the following properties.
   - `0 <= fraction < 1`
   - `fraction >= 1`: completed
   - `fraction = nothing`: indeterminate progress
-- `id::UUID`: Identifier of the task whose progress is at `fraction`.
+- `id::UUID`: Identifier of the job whose progress is at `fraction`.
 - `parentid::UUID`: The ID of the parent progress.  It is set to
   [`ProgressLogging.ROOTID`](@ref) when there is no parent progress.
-  This is used for representing progresses of nested tasks.  Note that
-  sub-tasks may be executed concurrently; i.e., there can be multiple
-  child tasks for one parent task.
+  This is used for representing progresses of nested jobs.  Note that
+  sub-jobs may be executed concurrently; i.e., there can be multiple
+  child jobs for one parent job.
 - `name::String`: Name of the progress bar.
-- `done::Bool`: `true` if the task is done.
+- `done::Bool`: `true` if the job is done.
 """
 struct Progress
     id::UUID
