@@ -123,4 +123,26 @@ end
     @test occursin("invalid_argument", msg)
 end
 
+module IsolatedNamespace
+import ProgressLogging
+using Test: @test, @testset, collect_test_logs
+@testset "IsolatedNamespace" begin
+    logs, = collect_test_logs(min_level = ProgressLogging.ProgressLevel) do
+        ProgressLogging.@withprogress ProgressLogging.@logprogress "hello" 0.1
+    end
+    @test length(logs) == 3
+    @test logs[1].kwargs[:progress] === NaN
+    @test logs[2].kwargs[:progress] === 0.1
+    @test logs[3].kwargs[:progress] === "done"
+    @test logs[1].message == ""
+    @test logs[2].message == "hello"
+    @test logs[3].message == ""
+    @test [l.message.progress.fraction for l in logs] == [nothing, 0.1, nothing]
+    @test [l.message.progress.done for l in logs] == [false, false, true]
+    @test length(unique([l.message.progress.id for l in logs])) == 1
+    @test length(unique([l.id for l in logs])) == 1
+    @test unique([l.message.progress.parentid for l in logs]) == [ProgressLogging.ROOTID]
+end
+end  # module IsolatedNamespace
+
 end  # module
