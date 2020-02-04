@@ -182,18 +182,14 @@ function _progress(name, thresh, ex, target, result, loop, iter_vars, ranges, bo
     )]
     quote
         $target = @withprogress name = $(esc(name)) begin
-            ranges = $(Expr(:vect, esc.(ranges)...))
-            lens = map(length, ranges)
-            n = prod(lens)
-            strides = cumprod([1; lens[1:end-1]])
-            _frac(i) = (sum((i - 1) * s for (i, s) in zip(i, strides)) + 1) / n
+            count_to_frac = make_count_to_frac($(esc.(ranges)...))
             lastfrac = 0.0
 
             $(loop(
                 iter_exprs,
                 quote
                     val = $body
-                    frac = _frac($(Expr(:vect, count_vars...)))
+                    frac = count_to_frac($(count_vars...))
                     if frac - lastfrac > $thresh
                         @logprogress frac
                         lastfrac = frac
@@ -209,5 +205,26 @@ end
 _comprehension(iter_exprs, body) =
     Expr(:comprehension, Expr(:generator, body, iter_exprs...))
 _for(iter_exprs, body) = Expr(:for, Expr(:block, reverse(iter_exprs)...), body)
+
+taccumulate(op, ::Tuple{}) = ()
+function taccumulate(op::F, xs::Tuple) where {F}
+    ys, = foldl(Base.tail(xs); init=((xs[1],), xs[1])) do (ys, acc), x
+        acc = op(acc, x)
+        (ys..., acc), acc
+    end
+    return ys
+end
+
+function make_count_to_frac(iterators...)
+    lens = map(length, iterators)
+    n = prod(lens)
+    strides = (1, taccumulate(*, Base.front(lens))...)
+    function count_to_frac(idxs...)
+        offsets = map(i -> i - 1, idxs)
+        total = sum(map(*, offsets, strides)) + 1
+        return total / n
+    end
+    return count_to_frac
+end
 
 end # module
