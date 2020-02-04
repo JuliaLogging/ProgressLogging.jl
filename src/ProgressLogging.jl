@@ -183,7 +183,6 @@ function _progress(name, thresh, ex, target, result, loop, iter_vars, ranges, bo
     quote
         $target = @withprogress name = $(esc(name)) begin
             ranges = $(Expr(:vect, esc.(ranges)...))
-            nranges = length(ranges)
             lens = length.(ranges)
             n = prod(lens)
             strides = cumprod([1; lens[1:end-1]])
