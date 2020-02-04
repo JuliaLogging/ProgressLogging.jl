@@ -129,7 +129,7 @@ if possible. Update frequency is limited by `threshold` (one update per 0.5% of
 progress by default).
 """
 macro progress(args...)
-    _progress(args...)
+    esc(_progress(args...))
 end
 
 _progress(ex) = _progress("", 0.005, ex)
@@ -141,10 +141,10 @@ function _progress(name, thresh, ex)
        ex.args[2].head == :comprehension && ex.args[2].args[1].head == :generator
         # comprehension: <target> = [<body> for <iter_var> in <range>,...]
         loop = _comprehension
-        target = esc(ex.args[1])
+        target = ex.args[1]
         result = target
         gen_ex = ex.args[2].args[1]
-        body = esc(gen_ex.args[1])
+        body = gen_ex.args[1]
         iter_exprs = gen_ex.args[2:end]
         iter_vars = [e.args[1] for e in iter_exprs]
         ranges = [e.args[2] for e in iter_exprs]
@@ -155,7 +155,7 @@ function _progress(name, thresh, ex)
         result = :nothing
         iter_vars = [ex.args[1].args[1]]
         ranges = [ex.args[1].args[2]]
-        body = esc(ex.args[2])
+        body = ex.args[2]
     elseif ex.head == :for && ex.args[1].head == :block && ex.args[2].head == :block
         # multi-variable for: for <iter_var> = <range>,...; <body> end
         loop = _for
@@ -165,7 +165,7 @@ function _progress(name, thresh, ex)
         # consistent computation of progress between for loops and comprehensions
         iter_vars = reverse([e.args[1] for e in ex.args[1].args])
         ranges = reverse([e.args[2] for e in ex.args[1].args])
-        body = esc(ex.args[2])
+        body = ex.args[2]
     else
         error("@progress requires a for loop (for i in irange, j in jrange, ...; <body> end) " *
               "or array comprehension with assignment (x = [<body> for i in irange, j in jrange, ...])")
@@ -174,27 +174,29 @@ function _progress(name, thresh, ex)
 end
 
 function _progress(name, thresh, ex, target, result, loop, iter_vars, ranges, body)
-    count_vars = [Symbol("i$k") for k = 1:length(iter_vars)]
-    iter_exprs = [:(($i, $(esc(v))) = enumerate($(esc(r)))) for (i, v, r) in zip(
+    count_vars = [gensym(Symbol("i$k")) for k = 1:length(iter_vars)]
+    iter_exprs = [:(($i, $v) = $enumerate($r)) for (i, v, r) in zip(
         count_vars,
         iter_vars,
         ranges,
     )]
+    @gensym count_to_frac val frac lastfrac
+    m = @__MODULE__
     quote
-        $target = @withprogress name = $(esc(name)) begin
-            count_to_frac = make_count_to_frac($(esc.(ranges)...))
-            lastfrac = 0.0
+        $target = @withprogress name = $name begin
+            $count_to_frac = $make_count_to_frac($(ranges...))
+            $lastfrac = 0.0
 
             $(loop(
                 iter_exprs,
                 quote
-                    val = $body
-                    frac = count_to_frac($(count_vars...))
-                    if frac - lastfrac > $thresh
-                        @logprogress frac
-                        lastfrac = frac
+                    $val = $body
+                    $frac = $count_to_frac($(count_vars...))
+                    if $frac - $lastfrac > $thresh
+                        $m.@logprogress $frac
+                        $lastfrac = $frac
                     end
-                    val
+                    $val
                 end,
             ))
         end
