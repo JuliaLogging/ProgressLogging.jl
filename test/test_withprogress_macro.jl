@@ -76,7 +76,7 @@ end
     @test unique([l.message.progress.parentid for l in logs]) == [ROOTID]
 end
 
-@testset "nested" begin
+@testset "nested @withprogress" begin
     logs, = collect_test_logs(min_level = ProgressLevel) do
         @withprogress begin
             @logprogress "hello" 0.1
@@ -101,6 +101,28 @@ end
         (ids[2], ids[1], "world", 0.2),
         (ids[2], ids[1], "", "done"),
         (ids[1], ROOTID, "", "done"),
+    )
+end
+
+@testset "nested @progress" begin
+    logs, = collect_test_logs(min_level = ProgressLevel) do
+        @progress "o" -1 for i in 1:2
+            @progress "i" -1 for j in 1:2
+            end
+        end
+    end
+
+    idxs = [1, 2, 2, 2, 2, 1, 3, 3, 3, 3, 1, 1]
+    ids = unique([l.id for l in logs])
+    pids = [ROOTID, ids[1], ids[1]]
+    messages = ["o", "i", "i"]
+
+    @test [l.id for l in logs] == ids[idxs]
+    @test [l.message.progress.parentid for l in logs] == pids[idxs]
+    @test [string(l.message) for l in logs] == messages[idxs]
+    @test isequal(
+        [l.kwargs[:progress] for l in logs],
+        [NaN, NaN, 0.5, 1.0, "done", 0.5, NaN, 0.5, 1.0, "done", 1.0, "done"],
     )
 end
 
