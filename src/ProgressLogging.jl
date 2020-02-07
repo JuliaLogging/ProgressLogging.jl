@@ -3,12 +3,231 @@ module ProgressLogging
 # Use README as the docstring of the module:
 @doc read(joinpath(dirname(@__DIR__), "README.md"), String) ProgressLogging
 
-export @progress, @withprogress, @logprogress
+export @progress, @progressid, @withprogress, @logprogress
 
 using Base.Meta: isexpr
+using UUIDs: UUID, uuid4
 using Logging: Logging, @logmsg, LogLevel
 
+if VERSION >= v"1.1-"
+    using UUIDs: uuid5
+else
+    import SHA
+    function uuid5(ns::UUID, name::String)
+        nsbytes = zeros(UInt8, 16)
+        nsv = ns.value
+        for idx in Base.OneTo(16)
+            nsbytes[idx] = nsv >> 120
+            nsv = nsv << 8
+        end
+        hash_result = SHA.sha1(append!(nsbytes, convert(Vector{UInt8}, codeunits(unescape_string(name)))))
+        # set version number to 5
+        hash_result[7] = (hash_result[7] & 0x0F) | (0x50)
+        hash_result[9] = (hash_result[9] & 0x3F) | (0x80)
+        v = zero(UInt128)
+        #use only the first 16 bytes of the SHA1 hash
+        for idx in Base.OneTo(16)
+            v = (v << 0x08) | hash_result[idx]
+        end
+        return UUID(v)
+    end
+end
+
 const ProgressLevel = LogLevel(-1)
+
+"""
+    ProgressLogging.ROOTID
+
+This is used as `parentid` of root [`Progress`](@ref)es.
+"""
+const ROOTID = UUID(0)
+
+"""
+    ProgressLogging.Progress(id, [fraction]; [parentid, name, done])
+
+# Usage: Progress log record provider
+
+Progress log record can be created by using the following pattern
+
+```julia
+id = uuid4()
+try
+    @info Progress(id)  # create a progress bar
+    # some time consuming job
+    # ...
+    @info Progress(id, 0.1)  # update progress to 10%
+    # ...
+finally
+    @info Progress(id, done = true)  # close the progress bar
+end
+```
+
+It is recommended to use [`@withprogress`](@ref),
+[`@logprogress`](@ref), and optionally [`@progressid`](@ref) to create
+log records.
+
+# Usage: Progress log record consumer (aka progress monitor)
+
+It is recommended to use [`ProgressLogging.asprogress`](@ref) instead
+of checking `message isa Progress`.  Progress monitors can retrieve
+progress-related information from the following properties.
+
+# Properties
+- `fraction::Union{Float64,Nothing}`: it can take following values:
+  - `0 <= fraction < 1`
+  - `fraction >= 1`: completed
+  - `fraction = nothing`: indeterminate progress
+- `id::UUID`: Identifier of the job whose progress is at `fraction`.
+- `parentid::UUID`: The ID of the parent progress.  It is set to
+  [`ProgressLogging.ROOTID`](@ref) when there is no parent progress.
+  This is used for representing progresses of nested jobs.  Note that
+  sub-jobs may be executed concurrently; i.e., there can be multiple
+  child jobs for one parent job.
+- `name::String`: Name of the progress bar.
+- `done::Bool`: `true` if the job is done.
+"""
+struct Progress
+    id::UUID
+    parentid::UUID
+    fraction::Union{Float64,Nothing}
+    name::String
+    done::Bool
+
+    function Progress(id, parentid, fraction, name, done)
+        if fraction isa Real && isnan(fraction)
+            fraction = nothing
+        end
+        return new(id, parentid, fraction, name, done)
+    end
+end
+
+Progress(;
+    id::UUID,
+    parentid::UUID = ROOTID,  # not nested by default
+    fraction::Union{Float64,Nothing} = nothing,
+    name::String = "",
+    done::Bool = false,
+) = Progress(id, parentid, fraction, name, done)
+
+Progress(id::UUID, fraction::Union{Real,Nothing} = nothing; kwargs...) =
+    Progress(; kwargs..., fraction = fraction, id = id)
+
+# Define `string`/`print` so that progress log records are (somewhat)
+# readable even without specific log monitors.
+function Base.print(io::IO, progress::Progress)
+    print(io, isempty(progress.name) ? "Progress" : progress.name)
+    if progress.parentid !== ROOTID
+        print(io, " (sub)")
+    end
+    print(io, ": ")
+    if progress.fraction === nothing
+        print(io, "??%")
+    else
+        print(io, floor(Int, progress.fraction * 100), '%')
+    end
+    return
+end
+
+const PROGRESS_LOGGING_UUID_NS = UUID("1e962757-ea70-431a-b9f6-aadf988dcb7f")
+
+asuuid(id::UUID) = id
+asuuid(id) = uuid5(PROGRESS_LOGGING_UUID_NS, repr(id))
+
+
+"""
+    ProgressLogging.asprogress(_, name, _, _, id, _, _; progress, ...) :: Union{Progress, Nothing}
+
+Pre-process log record to obtain a [`Progress`](@ref) object if it is
+one of the supported format.  This is mean to be used with the
+`message` positional argument and _all_ keyword arguments passed to
+`Logging.handle_message`.  Example:
+
+```julia
+function Logging.handle_message(logger::MyLogger, args...; kwargs...)
+    progress = ProgressLogging.asprogress(args...; kwargs...)
+    if progress !== nothing
+        return # handle progress log record
+    end
+    # handle normal log record
+end
+```
+"""
+asprogress(_level, progress::Progress, _args...; _...) = progress
+function asprogress(
+    _level,
+    name,
+    _module,
+    _group,
+    id,
+    _file,
+    _line;
+    progress = undef,  # `undef` is an arbitrary unsupported value
+    kwargs...,
+)
+    if progress isa Union{Nothing,Real,AbstractString}
+        return _asprogress(name, id; progress = progress, kwargs...)
+    else
+        return nothing
+    end
+end
+
+# `parentid` is used from `@logprogress`.
+function _asprogress(name, id, parentid = ROOTID; progress, _...)
+    if progress isa Union{Nothing,Real}
+        fraction = progress
+    elseif progress == "done"
+        fraction = nothing
+    else
+        return nothing
+    end
+    return Progress(
+        fraction = fraction,
+        name = name,
+        id = asuuid(id),
+        parentid = parentid,
+        done = progress == "done",
+    )
+end
+
+# To pass `Progress` value without breaking progress monitors with the
+# previous `progress` key based specification, we create a custom
+# string type that has `Progress` attached to it.  This is used as the
+# third argument `message` of `Logging.handle_message`.
+struct ProgressString <: AbstractString
+    progress::Progress
+end
+
+asprogress(_level, str::ProgressString, _args...; _...) = str.progress
+
+# Since `Base.string(::AbstractString)` is defined to be an `identity`
+# function, we overload it to make sure that `string(message)`
+# typically used in the loggers converts `ProgressString` to a vanilla
+# `String` as soon as possible.  It may not be needed if we define
+# `ProgressString` perfectly.  But let's play on the safe side.
+Base.string(str::ProgressString) = str.progress.name
+
+Base.print(io::IO, str::ProgressString) = print(io, string(str))
+Base.convert(::Type{ProgressString}, str::ProgressString) = str
+Base.convert(::Type{T}, str::ProgressString) where {T<:AbstractString} =
+    convert(T, str.progress.name)
+
+# Define `cmp` to make `==` etc. work
+Base.cmp(a::AbstractString, b::ProgressString) = cmp(a, string(b))
+Base.cmp(a::ProgressString, b::AbstractString) = cmp(string(a), b)
+Base.cmp(a::ProgressString, b::ProgressString) = cmp(string(a), string(b))
+
+# Avoid using `show(::IO, ::AbstractString)` which expects
+# `Base.print_quoted` to work.
+function Base.show(io::IO, str::ProgressString)
+    if get(io, :typeinfo, Any) === ProgressString
+        show(io, string(str))
+        return
+    end
+    print(io, @__MODULE__, ".")
+    print(io, "ProgressString(")
+    show(io, str.progress)
+    print(io, ")")
+end
 
 """
     progress(f::Function; name = "")
@@ -37,7 +256,7 @@ end
 ```
 """
 function progress(f; name = "")
-    _id = gensym()
+    _id = uuid4()
     @logmsg ProgressLevel name progress = NaN _id = _id
     try
         f(_id)
@@ -47,10 +266,11 @@ function progress(f; name = "")
 end
 
 const _id_var = gensym(:progress_id)
+const _parentid_var = gensym(:progress_parentid)
 const _name_var = gensym(:progress_name)
 
 """
-    @withprogress [name=""] ex
+    @withprogress [name=""] [parentid=uuid4()] ex
 
 Create a lexical environment in which [`@logprogress`](@ref) can be used to
 emit progress log events without manually specifying the log level, `_id`,
@@ -65,21 +285,44 @@ and name (log message).
 end
 ```
 """
-macro withprogress(ex1, ex2 = nothing)
-    _withprogress(ex1, ex2)
+macro withprogress(exprs...)
+    _withprogress(exprs...)
 end
 
-_withprogress(ex, ::Nothing) = _withprogress(:(name = ""), ex)
-function _withprogress(kwarg, ex)
-    if !(kwarg.head == :(=) && kwarg.args[1] == :name)
-        throw(ArgumentError("First expression to @withprogress must be `name=...`. Got: $kwarg"))
-    end
-    name = kwarg.args[2]
+function _withprogress(exprs...)
+    length(exprs) == 0 &&
+        throw(ArgumentError("`@withprogress` requires at least one expression."))
 
     m = @__MODULE__
+
+    kwargs = Dict(:name => "", :parentid => :($m.@progressid()))
+    unsupported = []
+    for kw in exprs[1:end-1]
+        if isexpr(kw, :(=)) && length(kw.args) == 2 && haskey(kwargs, kw.args[1])
+            kwargs[kw.args[1]] = kw.args[2]
+        else
+            push!(unsupported, kw)
+        end
+    end
+
+    # Error on invalid input expressions:
+    if !isempty(unsupported)
+        msg = sprint() do io
+            println(io, "Unsupported optional arguments:")
+            for kw in unsupported
+                println(io, kw)
+            end
+            print(io, "`@withprogress` supports only following keyword arguments: ")
+            join(io, keys(kwargs), ", ")
+        end
+        throw(ArgumentError(msg))
+    end
+
+    ex = exprs[end]
     quote
-        let $_id_var = gensym(:progress_id),
-            $_name_var = $name
+        let $_parentid_var = $(kwargs[:parentid]),
+            $_id_var = $uuid4(),
+            $_name_var = $(kwargs[:name])
             $m.@logprogress NaN
             try
                 $ex
@@ -103,20 +346,54 @@ Optional first argument `name` can be used to change the name of the
 progress bar.  Additional keyword arguments are passed to `@logmsg`.
 """
 macro logprogress(name, progress = nothing, args...)
+    name_expr = :($Base.@isdefined($_name_var) ? $_name_var : "")
     if progress == nothing
         # Handle: @logprogress progress
         kwargs = (:(progress = $name), args...)
-        name = _name_var
+        progress = name
+        name = name_expr
     elseif isexpr(progress, :(=)) && progress.args[1] isa Symbol
         # Handle: @logprogress progress key1=val1 ...
         kwargs = (:(progress = $name), progress, args...)
-        name = _name_var
+        progress = name
+        name = name_expr
     else
         # Otherwise, it's: @logprogress name progress key1=val1 ...
         kwargs = (:(progress = $progress), args...)
     end
+
+    id_err = "`@logprogress` must be used inside `@withprogress` or with `_id` keyword argument"
+    id_expr = :($Base.@isdefined($_id_var) ? $_id_var : $error($id_err))
+    for x in kwargs
+        if isexpr(x, :(=)) && x.args[1] === :_id
+            id_expr = :($asuuid($(x.args[2])))
+            # last set wins; so not `break`ing
+        end
+    end
+
+    @gensym id_tmp
+    # Emitting progress log record as old/open API (i.e., using
+    # `progress` key) and _also_ as new API based on `Progress` type.
+    msgexpr = :($ProgressString($_asprogress(
+        $name,
+        $id_tmp,
+        $_parentid_var;
+        progress = $progress,
+    )))
     quote
-        $Logging.@logmsg($ProgressLevel, $name, _id = $_id_var, $(kwargs...))
+        $id_tmp = $id_expr
+        $Logging.@logmsg($ProgressLevel, $msgexpr, $(kwargs...), _id = $id_tmp)
+    end |> esc
+end
+
+"""
+    @progressid
+
+Get the progress ID of current lexical scope.
+"""
+macro progressid()
+    quote
+        $Base.@isdefined($_id_var) ? $_id_var : $ROOTID
     end |> esc
 end
 
