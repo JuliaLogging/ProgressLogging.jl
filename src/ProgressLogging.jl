@@ -104,7 +104,7 @@ end
 Progress(;
     id::UUID,
     parentid::UUID = ROOTID,  # not nested by default
-    fraction::Union{Float64,Nothing} = nothing,
+    fraction::Union{Real,Nothing} = nothing,
     name::String = "",
     done::Bool = false,
 ) = Progress(id, parentid, fraction, name, done)
