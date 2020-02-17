@@ -406,7 +406,7 @@ if possible. Update frequency is limited by `threshold` (one update per 0.5% of
 progress by default).
 """
 macro progress(args...)
-    _progress(args...)
+    esc(_progress(args...))
 end
 
 _progress(ex) = _progress("", 0.005, ex)
@@ -418,10 +418,10 @@ function _progress(name, thresh, ex)
        ex.args[2].head == :comprehension && ex.args[2].args[1].head == :generator
         # comprehension: <target> = [<body> for <iter_var> in <range>,...]
         loop = _comprehension
-        target = esc(ex.args[1])
+        target = ex.args[1]
         result = target
         gen_ex = ex.args[2].args[1]
-        body = esc(gen_ex.args[1])
+        body = gen_ex.args[1]
         iter_exprs = gen_ex.args[2:end]
         iter_vars = [e.args[1] for e in iter_exprs]
         ranges = [e.args[2] for e in iter_exprs]
@@ -432,7 +432,7 @@ function _progress(name, thresh, ex)
         result = :nothing
         iter_vars = [ex.args[1].args[1]]
         ranges = [ex.args[1].args[2]]
-        body = esc(ex.args[2])
+        body = ex.args[2]
     elseif ex.head == :for && ex.args[1].head == :block && ex.args[2].head == :block
         # multi-variable for: for <iter_var> = <range>,...; <body> end
         loop = _for
@@ -442,7 +442,7 @@ function _progress(name, thresh, ex)
         # consistent computation of progress between for loops and comprehensions
         iter_vars = reverse([e.args[1] for e in ex.args[1].args])
         ranges = reverse([e.args[2] for e in ex.args[1].args])
-        body = esc(ex.args[2])
+        body = ex.args[2]
     else
         error("@progress requires a for loop (for i in irange, j in jrange, ...; <body> end) " *
               "or array comprehension with assignment (x = [<body> for i in irange, j in jrange, ...])")
@@ -451,46 +451,32 @@ function _progress(name, thresh, ex)
 end
 
 function _progress(name, thresh, ex, target, result, loop, iter_vars, ranges, body)
-    count_vars = [Symbol("i$k") for k = 1:length(iter_vars)]
-    iter_exprs = [:(($i, $(esc(v))) = enumerate($(esc(r)))) for (i, v, r) in zip(
+    count_vars = [gensym(Symbol("i$k")) for k = 1:length(iter_vars)]
+    iter_exprs = [:(($i, $v) = $enumerate($r)) for (i, v, r) in zip(
         count_vars,
         iter_vars,
         ranges,
     )]
-    _id = "progress_$(gensym())"
+    @gensym count_to_frac val frac lastfrac
+    m = @__MODULE__
     quote
-        @logmsg($ProgressLevel, $(esc(name)), progress = 0.0, _id = Symbol($_id))
-        $target =
-            try
-                ranges = $(Expr(:vect, esc.(ranges)...))
-                nranges = length(ranges)
-                lens = length.(ranges)
-                n = prod(lens)
-                strides = cumprod([1; lens[1:end-1]])
-                _frac(i) = (sum((i - 1) * s for (i, s) in zip(i, strides)) + 1) / n
-                lastfrac = 0.0
+        $target = @withprogress name = $name begin
+            $count_to_frac = $make_count_to_frac($(ranges...))
+            $lastfrac = 0.0
 
-                $(loop(
-                    iter_exprs,
-                    quote
-                        val = $body
-                        frac = _frac($(Expr(:vect, count_vars...)))
-                        if frac - lastfrac > $thresh
-                            @logmsg(
-                                $ProgressLevel,
-                                $(esc(name)),
-                                progress = frac,
-                                _id = Symbol($_id),
-                            )
-                            lastfrac = frac
-                        end
-                        val
-                    end,
-                ))
-
-            finally
-                @logmsg($ProgressLevel, $(esc(name)), progress = "done", _id = Symbol($_id))
-            end
+            $(loop(
+                iter_exprs,
+                quote
+                    $val = $body
+                    $frac = $count_to_frac($(count_vars...))
+                    if $frac - $lastfrac > $thresh
+                        $m.@logprogress $frac
+                        $lastfrac = $frac
+                    end
+                    $val
+                end,
+            ))
+        end
         $result
     end
 end
@@ -498,5 +484,26 @@ end
 _comprehension(iter_exprs, body) =
     Expr(:comprehension, Expr(:generator, body, iter_exprs...))
 _for(iter_exprs, body) = Expr(:for, Expr(:block, reverse(iter_exprs)...), body)
+
+taccumulate(op, ::Tuple{}) = ()
+function taccumulate(op::F, xs::Tuple) where {F}
+    ys, = foldl(Base.tail(xs); init=((xs[1],), xs[1])) do (ys, acc), x
+        acc = op(acc, x)
+        (ys..., acc), acc
+    end
+    return ys
+end
+
+function make_count_to_frac(iterators...)
+    lens = map(length, iterators)
+    n = prod(lens)
+    strides = (1, taccumulate(*, Base.front(lens))...)
+    function count_to_frac(idxs...)
+        offsets = map(i -> i - 1, idxs)
+        total = sum(map(*, offsets, strides)) + 1
+        return total / n
+    end
+    return count_to_frac
+end
 
 end # module
