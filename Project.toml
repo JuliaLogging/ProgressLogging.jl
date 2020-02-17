@@ -1,6 +1,6 @@
 name = "ProgressLogging"
 uuid = "33c8b6b6-d38a-422a-b730-caa89a2f386c"
-version = "0.1.0"
+version = "0.1.1"
 
 [deps]
 Logging = "56ddb016-857b-54e1-b83d-db4d58db5568"
