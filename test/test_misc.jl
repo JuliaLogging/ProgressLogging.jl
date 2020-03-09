@@ -4,8 +4,8 @@ using ProgressLogging
 using Test
 using Logging
 
-@testset "implemented_by" begin
-    @test ProgressLogging.implemented_by(NullLogger()) == false
+@testset "implementedby" begin
+    @test ProgressLogging.implementedby(NullLogger()) == false
 end
 
 end  # module

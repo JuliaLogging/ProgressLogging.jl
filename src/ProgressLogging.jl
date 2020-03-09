@@ -152,7 +152,7 @@ function Logging.handle_message(logger::MyLogger, args...; kwargs...)
 end
 ```
 
-Progress monitors also should define [`implemented_by`](@ref).
+Progress monitors also should define [`implementedby`](@ref).
 """
 asprogress(_level, progress::Progress, _args...; _...) = progress
 function asprogress(
@@ -509,7 +509,7 @@ function make_count_to_frac(iterators...)
 end
 
 """
-    ProgressLogging.implemented_by(logger::AbstractLogger) :: Bool
+    ProgressLogging.implementedby(logger::AbstractLogger) :: Bool
 
 Check if ProgressLogging protocol is supported by `logger`.
 
@@ -518,10 +518,10 @@ Check if ProgressLogging protocol is supported by `logger`.
 A progress monitor `CustomLogger <: AbstractLogger` should define
 
 ```julia
-ProgressLogging.implemented_by(::CustomLogger) = true
+ProgressLogging.implementedby(::CustomLogger) = true
 ```
 """
-implemented_by
-implemented_by(@nospecialize(logger::Logging.AbstractLogger)) = false
+implementedby
+implementedby(@nospecialize(logger::Logging.AbstractLogger)) = false
 
 end # module
