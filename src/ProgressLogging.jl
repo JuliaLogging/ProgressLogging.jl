@@ -460,7 +460,7 @@ function _progress(name, thresh, ex, target, result, loop, iter_vars, ranges, bo
     @gensym count_to_frac val frac lastfrac
     m = @__MODULE__
     quote
-        $target = @withprogress name = $name begin
+        $target = $m.@withprogress name = $name begin
             $count_to_frac = $make_count_to_frac($(ranges...))
             $lastfrac = 0.0
 
