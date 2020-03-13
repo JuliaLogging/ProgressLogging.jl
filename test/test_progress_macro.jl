@@ -1,6 +1,6 @@
 module TestProgressMacro
 
-using ProgressLogging
+using ProgressLogging: @progress
 using Test
 
 let i = 0, x
