@@ -11,7 +11,7 @@ using Test: collect_test_logs
         @withprogress @logprogress "hello" 0.1
     end
     @test length(logs) == 3
-    @test logs[1].kwargs[:progress] === NaN
+    @test logs[1].kwargs[:progress] === nothing
     @test logs[2].kwargs[:progress] === 0.1
     @test logs[3].kwargs[:progress] === "done"
     @test logs[1].message == ""
@@ -29,7 +29,7 @@ end
         @withprogress name = "hello" @logprogress 0.1
     end
     @test length(logs) == 3
-    @test logs[1].kwargs[:progress] === NaN
+    @test logs[1].kwargs[:progress] === nothing
     @test logs[2].kwargs[:progress] === 0.1
     @test logs[3].kwargs[:progress] === "done"
     @test logs[1].message == "hello"
@@ -47,7 +47,7 @@ end
         @withprogress @logprogress 0.1 message = "hello"
     end
     @test length(logs) == 3
-    @test logs[1].kwargs[:progress] === NaN
+    @test logs[1].kwargs[:progress] === nothing
     @test logs[2].kwargs[:progress] === 0.1
     @test logs[3].kwargs[:progress] === "done"
     @test logs[2].kwargs[:message] === "hello"
@@ -63,7 +63,7 @@ end
         @withprogress name = "name" @logprogress "hello" 0.1
     end
     @test length(logs) == 3
-    @test logs[1].kwargs[:progress] === NaN
+    @test logs[1].kwargs[:progress] === nothing
     @test logs[2].kwargs[:progress] === 0.1
     @test logs[3].kwargs[:progress] === "done"
     @test logs[1].message == "name"
@@ -95,9 +95,9 @@ end
         (l.id, l.message.progress.parentid, string(l.message), l.kwargs[:progress])
         for l in logs
     ) === (
-        (ids[1], ROOTID, "", NaN),
+        (ids[1], ROOTID, "", nothing),
         (ids[1], ROOTID, "hello", 0.1),
-        (ids[2], ids[1], "", NaN),
+        (ids[2], ids[1], "", nothing),
         (ids[2], ids[1], "world", 0.2),
         (ids[2], ids[1], "", "done"),
         (ids[1], ROOTID, "", "done"),
@@ -122,7 +122,7 @@ end
     @test [string(l.message) for l in logs] == messages[idxs]
     @test isequal(
         [l.kwargs[:progress] for l in logs],
-        [NaN, NaN, 0.5, 1.0, "done", 0.5, NaN, 0.5, 1.0, "done", 1.0, "done"],
+        [nothing, nothing, 0.5, 1.0, "done", 0.5, nothing, 0.5, 1.0, "done", 1.0, "done"],
     )
 end
 
@@ -153,7 +153,7 @@ using Test: @test, @testset, collect_test_logs
         ProgressLogging.@withprogress ProgressLogging.@logprogress "hello" 0.1
     end
     @test length(logs) == 3
-    @test logs[1].kwargs[:progress] === NaN
+    @test logs[1].kwargs[:progress] === nothing
     @test logs[2].kwargs[:progress] === 0.1
     @test logs[3].kwargs[:progress] === "done"
     @test logs[1].message == ""

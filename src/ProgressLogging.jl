@@ -257,7 +257,7 @@ end
 """
 function progress(f; name = "")
     _id = uuid4()
-    @logmsg ProgressLevel name progress = NaN _id = _id
+    @logmsg ProgressLevel name progress = nothing _id = _id
     try
         f(_id)
     finally
@@ -323,7 +323,7 @@ function _withprogress(exprs...)
         let $_parentid_var = $(kwargs[:parentid]),
             $_id_var = $uuid4(),
             $_name_var = $(kwargs[:name])
-            $m.@logprogress NaN
+            $m.@logprogress nothing
             try
                 $ex
             finally
