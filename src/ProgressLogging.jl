@@ -506,4 +506,7 @@ function make_count_to_frac(iterators...)
     return count_to_frac
 end
 
+# ancillary code
+include("convergence.jl")
+
 end # module
