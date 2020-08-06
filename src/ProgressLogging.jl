@@ -164,9 +164,15 @@ function asprogress(
     progress = undef,  # `undef` is an arbitrary unsupported value
     kwargs...,
 )
+    if hasfield(typeof(name), :progress)
+        return Progress((getfield(name.progress, f) for f in fieldnames(Progress))...)
+    end
     if progress isa Union{Nothing,Real,AbstractString}
         return _asprogress(name, id; progress = progress, kwargs...)
     else
+        if fieldnames(typeof(progress)) == fieldnames(Progress)
+            return Progress((getfield(progress, f) for f in fieldnames(Progress))...)
+        end
         return nothing
     end
 end
