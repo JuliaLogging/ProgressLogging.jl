@@ -452,7 +452,7 @@ end
 
 function _progress(name, thresh, ex, target, result, loop, iter_vars, ranges, body)
     count_vars = [gensym(Symbol("i$k")) for k = 1:length(iter_vars)]
-    iter_exprs = [:(($i, $v) = $enumerate($r)) for (i, v, r) in zip(
+    iter_exprs = [:(($i, $v) = $zip($_linindex($r),$r)) for (i, v, r) in zip(
         count_vars,
         iter_vars,
         ranges,
@@ -496,14 +496,17 @@ end
 
 function make_count_to_frac(iterators...)
     lens = map(length, iterators)
+    firsts = map(first∘_linindex, iterators)
     n = prod(lens)
     strides = (1, taccumulate(*, Base.front(lens))...)
     function count_to_frac(idxs...)
-        offsets = map(i -> i - 1, idxs)
+        offsets = map(-, idxs, firsts)
         total = sum(map(*, offsets, strides)) + 1
         return total / n
     end
     return count_to_frac
 end
+
+_linindex(a) = LinearIndices(axes(a))
 
 end # module
