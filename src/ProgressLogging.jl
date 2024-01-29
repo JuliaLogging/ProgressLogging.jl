@@ -377,7 +377,7 @@ macro logprogress(name, progress = nothing, args...)
     msgexpr = :($ProgressString($_asprogress(
         $name,
         $id_tmp,
-        $_parentid_var;
+        Base.@isdefined($_parentid_var) ? $_parentid_var : $ROOTID;
         progress = $progress,
     )))
     quote
