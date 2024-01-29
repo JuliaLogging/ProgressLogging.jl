@@ -23,3 +23,4 @@ progress logs created by ProgressLogging.jl API.  For example:
 
 * [Juno](https://junolab.org/)
 * [TerminalLoggers.jl](https://github.com/c42f/TerminalLoggers.jl)
+* [Pluto.jl](https://plutojl.org)
