@@ -21,6 +21,7 @@ This package does not contain any _progress monitors_ for visualizing
 the progress of the program.  You need to install a package supporting
 progress logs created by ProgressLogging.jl API.  For example:
 
-* [Juno](https://junolab.org/)
 * [TerminalLoggers.jl](https://github.com/c42f/TerminalLoggers.jl)
 * [Pluto.jl](https://plutojl.org)
+* [VS Code](https://julia-vscode.org)
+* [Juno](https://junolab.org/)
