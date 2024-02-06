@@ -164,12 +164,22 @@ function asprogress(
     progress = undef,  # `undef` is an arbitrary unsupported value
     kwargs...,
 )
+    if hasfield(typeof(name), :progress) && is_progresslike(name.progress)
+        return _asprogress(name.progress)
+    end
     if progress isa Union{Nothing,Real,AbstractString}
         return _asprogress(name, id; progress = progress, kwargs...)
     else
+        if is_progresslike(progress)
+            return _asprogress(progress)
+        end
         return nothing
     end
 end
+
+is_progresslike(_::T) where {T} = all(in.(fieldnames(Progress), Ref(fieldnames(T))))
+
+_asprogress(progress) = Progress((getfield(progress, f) for f in fieldnames(Progress))...)
 
 # `parentid` is used from `@logprogress`.
 function _asprogress(name, id, parentid = ROOTID; progress, _...)
