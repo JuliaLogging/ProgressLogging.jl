@@ -6,32 +6,9 @@ module ProgressLogging
 export @progress, @progressid, @withprogress, @logprogress
 
 using Base.Meta: isexpr
+using Compat: uuid5  # for Julia 1.0
 using UUIDs: UUID, uuid4
 using Logging: Logging, @logmsg, LogLevel
-
-if VERSION >= v"1.1-"
-    using UUIDs: uuid5
-else
-    import SHA
-    function uuid5(ns::UUID, name::String)
-        nsbytes = zeros(UInt8, 16)
-        nsv = ns.value
-        for idx in Base.OneTo(16)
-            nsbytes[idx] = nsv >> 120
-            nsv = nsv << 8
-        end
-        hash_result = SHA.sha1(append!(nsbytes, convert(Vector{UInt8}, codeunits(unescape_string(name)))))
-        # set version number to 5
-        hash_result[7] = (hash_result[7] & 0x0F) | (0x50)
-        hash_result[9] = (hash_result[9] & 0x3F) | (0x80)
-        v = zero(UInt128)
-        #use only the first 16 bytes of the SHA1 hash
-        for idx in Base.OneTo(16)
-            v = (v << 0x08) | hash_result[idx]
-        end
-        return UUID(v)
-    end
-end
 
 const ProgressLevel = LogLevel(-1)
 
