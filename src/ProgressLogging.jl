@@ -193,7 +193,7 @@ end
 # previous `progress` key based specification, we create a custom
 # string type that has `Progress` attached to it.  This is used as the
 # third argument `message` of `Logging.handle_message`.
-struct ProgressString <: AbstractString
+struct ProgressString
     progress::Progress
 end
 
@@ -211,10 +211,13 @@ Base.convert(::Type{ProgressString}, str::ProgressString) = str
 Base.convert(::Type{T}, str::ProgressString) where {T<:AbstractString} =
     convert(T, str.progress.name)
 
-# Define `cmp` to make `==` etc. work
-Base.cmp(a::AbstractString, b::ProgressString) = cmp(a, string(b))
-Base.cmp(a::ProgressString, b::AbstractString) = cmp(string(a), b)
-Base.cmp(a::ProgressString, b::ProgressString) = cmp(string(a), string(b))
+# Define `isless` and `==` to make comparisons work
+Base.isless(a::AbstractString, b::ProgressString) = isless(a, string(b))
+Base.isless(a::ProgressString, b::AbstractString) = isless(string(a), b)
+Base.isless(a::ProgressString, b::ProgressString) = isless(string(a), string(b))
+Base.:(==)(a::AbstractString, b::ProgressString) = a == string(b)
+Base.:(==)(a::ProgressString, b::AbstractString) = string(a) == b
+Base.:(==)(a::ProgressString, b::ProgressString) = string(a) == string(b)
 
 # Avoid using `show(::IO, ::AbstractString)` which expects
 # `Base.print_quoted` to work.
