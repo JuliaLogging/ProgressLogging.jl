@@ -208,8 +208,6 @@ Base.string(str::ProgressString) = str.progress.name
 
 Base.print(io::IO, str::ProgressString) = print(io, string(str))
 Base.convert(::Type{ProgressString}, str::ProgressString) = str
-Base.convert(::Type{T}, str::ProgressString) where {T<:AbstractString} =
-    convert(T, str.progress.name)
 
 # Define `isless` and `==` to make comparisons work
 Base.isless(a::AbstractString, b::ProgressString) = isless(a, string(b))
